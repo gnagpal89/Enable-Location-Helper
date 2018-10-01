@@ -85,7 +85,7 @@ public class EnableLocationHelper {
         });
 
         // Give permission to access GPS
-         ActivityCompat.requestPermissions(activity, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 11);
+         //ActivityCompat.requestPermissions(activity, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 11);
     }
 
     /**
