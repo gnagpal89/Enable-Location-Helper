@@ -18,18 +18,26 @@ public class MainActivity extends AppCompatActivity {
     private LocationSettingsRequest mLocationSettingsRequest;
     private GoogleApiClient mGoogleApiClient;
     private LocationSettingsRequest.Builder builder;
+    private IEnableSetting mEnableLocationHelper = new EnableLocationHelper();
+    private IEnableSetting mEnableNetworkHelper = new EnableNetworkHelper();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         Log.i(TAG, "In onResume");
-        EnableLocationHelper.checkPermission(this);
+        if (!EnableSettingsManager.areSettingsEnabled(this)) {
+            EnableSettingsManager.enableSettings(this);
+        }
+        //EnableLocationHelper.checkPermission(this);
+        //EnableNetworkHelper.checkInternetConnection(this);
     }
 
     @Override
@@ -38,13 +46,12 @@ public class MainActivity extends AppCompatActivity {
         Log.e("Req Code", "" + requestCode);
         if (requestCode == EnableLocationHelper.ACCESS_FINE_LOCATION_INTENT_ID) {
             if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED ) {
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                 // Success Stuff here
                 Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show();
 
-            }
-            else{
+            } else {
                 // Failure Stuff
                 Toast.makeText(this, "Permission required", Toast.LENGTH_SHORT).show();
             }

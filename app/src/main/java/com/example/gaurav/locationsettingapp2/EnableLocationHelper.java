@@ -1,6 +1,5 @@
 package com.example.gaurav.locationsettingapp2;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -25,6 +24,7 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -33,13 +33,14 @@ import com.google.android.gms.tasks.Task;
 /**
  * Helper class to prompt user to enable GPS and Location Services
  */
-public class EnableLocationHelper {
+public class EnableLocationHelper implements IEnableSetting{
     private static final String TAG = EnableLocationHelper.class.getSimpleName();
 
     private static final int REQUEST_CHECK_SETTINGS = 1000;
     public static final int ACCESS_FINE_LOCATION_INTENT_ID = 3;
-    private static boolean isHighAccuracyLocationEnabled = false;
     private static boolean isPopUpShown = false;
+
+    private static boolean isLocationEnabled;
 
     /**
      * Enable GPS and Location Services
@@ -47,7 +48,11 @@ public class EnableLocationHelper {
      *
      * @param activity
      */
-    public static void switchOnGPSProgrammatically(final Activity activity) {
+    public static boolean switchOnGPSProgrammatically(final Activity activity) {
+//        if (checkIfLocationIsEnabled(activity)) {
+//            enableLocationService(activity);
+//            return;
+//        }
 
         // check whether current location settings are satisfied:
         Task<LocationSettingsResponse> task = LocationServices.getSettingsClient(activity).checkLocationSettings(buildLocationSettingsRequest());
@@ -59,6 +64,8 @@ public class EnableLocationHelper {
                     LocationSettingsResponse response = task.getResult(ApiException.class);
                     // All location settings are satisfied. The client can initialize location
                     // requests here.
+                    LocationSettingsStates state = response.getLocationSettingsStates();
+                    isLocationEnabled = state.isLocationUsable();
                 } catch (ApiException e) {
                     switch (e.getStatusCode()) {
                         case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
@@ -68,6 +75,7 @@ public class EnableLocationHelper {
                             // user a dialog.
                             try {
                                 resolvableApiException.startResolutionForResult(activity, REQUEST_CHECK_SETTINGS);
+
                             } catch (IntentSender.SendIntentException e1) {
                                 e1.printStackTrace();
                             }
@@ -80,12 +88,8 @@ public class EnableLocationHelper {
                     }
                 }
             }
-
-
         });
-
-        // Give permission to access GPS
-         //ActivityCompat.requestPermissions(activity, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 11);
+        return isLocationEnabled;
     }
 
     /**
@@ -93,19 +97,17 @@ public class EnableLocationHelper {
      *
      * @param activity
      */
-    public static void checkPermission(Activity activity) {
-        if (Build.VERSION.SDK_INT >= 23) {
+    public static boolean checkPermission(Activity activity) {
             if (ContextCompat.checkSelfPermission(activity,
                     android.Manifest.permission.ACCESS_FINE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED)
-                requestLocationPermission(activity);
+                return requestLocationPermission(activity);
             else
-                enableLocation(activity);
-        } else enableLocation(activity);
+                return enableLocation(activity);
     }
 
     /*  Show Popup to access User Permission  */
-    private static void requestLocationPermission(Activity activity) {
+    private static boolean requestLocationPermission(Activity activity) {
 //        if (ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
 //            ActivityCompat.requestPermissions(activity,
 //                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
@@ -120,6 +122,7 @@ public class EnableLocationHelper {
 
         ActivityCompat.requestPermissions(activity,
                 new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, ACCESS_FINE_LOCATION_INTENT_ID);
+        return false;
     }
 
     /**
@@ -128,12 +131,13 @@ public class EnableLocationHelper {
      *
      * @param activity
      */
-    public static void enableLocation(Activity activity) {
+    public static boolean enableLocation(Activity activity) {
+        //EnableNetworkHelper.checkInternetConnection(activity);
 
         if (isGooglePlayServicesAvailable(activity)) { // Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-            switchOnGPSProgrammatically(activity);
+            return switchOnGPSProgrammatically(activity);
         } else {
-            switchOnGPSManually(activity);
+            return switchOnGPSManually(activity);
         }
     }
 
@@ -156,10 +160,9 @@ public class EnableLocationHelper {
      *
      * @param activity
      */
-    private static void switchOnGPSManually(final Activity activity) {
+    private static boolean switchOnGPSManually(final Activity activity) {
         if (checkIfLocationIsEnabled(activity)) {
-            enableLocationService(activity);
-            return;
+            return true;
         }
         Log.i(TAG, "enable Location");
         if (!isPopUpShown) {
@@ -175,10 +178,7 @@ public class EnableLocationHelper {
 
                             Intent myIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
                             activity.startActivity(myIntent);
-                            if (checkIfLocationIsEnabled(activity)) {
-                                enableLocationService(activity);
-                                return;
-                            }
+                            isLocationEnabled = checkIfLocationIsEnabled(activity);
                         }
                     });
             dialog.setNegativeButton(activity.getResources().getString(R.string.enable_location_negative_btn),
@@ -188,7 +188,7 @@ public class EnableLocationHelper {
                             //isHighAccuracyLocationEnabled = false;
                             isPopUpShown = false;
                             Toast.makeText(activity, enableLocationMsg, Toast.LENGTH_LONG).show();
-                            enableLocation(activity);
+                            isLocationEnabled = switchOnGPSManually(activity);
                         }
                     });
             dialog.setCancelable(false);
@@ -196,8 +196,8 @@ public class EnableLocationHelper {
                 dialog.show();
                 isPopUpShown = true;
             }
-
         }
+        return isLocationEnabled;
     }
 
     /**
@@ -228,15 +228,14 @@ public class EnableLocationHelper {
         return gps_enabled && network_enabled;
     }
 
-    public static void enableLocationService(Activity activity) {
+    public static boolean enableLocationService(Activity activity) {
 
         if (!checkIfLocationIsEnabled(activity)) {
-            switchOnGPSManually(activity);
-            return;
+            return enableLocation(activity);
         }
 
-//        if (!ConnectionManager.isInternetConnected(this)) {
-//            showNetworkEnableDialog();
+//        if (!ConnectionManager.isInternetConnected(activity)) {
+//            EnableNetworkHelper.showNetworkEnableDialog(activity);
 //            return;
 //        }
 
@@ -246,5 +245,20 @@ public class EnableLocationHelper {
 
         //this.startLocationService(true);
 
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled(Activity activity) {
+        if (Build.VERSION.SDK_INT >= 23) {
+            return checkPermission(activity);
+        } else {
+            return enableLocation(activity);
+        }
+    }
+
+    @Override
+    public void enable(Activity activity) {
+        checkPermission(activity);
     }
 }
